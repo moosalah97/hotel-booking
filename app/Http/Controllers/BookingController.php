@@ -41,10 +41,6 @@ class BookingController extends Controller
         }
 
         $bookings = $bookings->get();
-        // for api
-        if ($request->expectsJson()) {
-            return response()->json($bookings, 200);
-        }
 
         // For web request
         return view('bookings.index', compact('bookings'));
@@ -88,7 +84,7 @@ class BookingController extends Controller
                 'rateplans' => $rateplans,
                 'calendars' => $calendars,
                 'errors' => $validator->errors(),
-                'old' => $request->all() // Keep the old input data
+                'old' => $request->all()
             ]);
         }
 
