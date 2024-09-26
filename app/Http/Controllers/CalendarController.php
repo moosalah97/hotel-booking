@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Calendar;
+use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -19,7 +20,6 @@ class CalendarController extends Controller
             'room_id' => 'required|exists:rooms,id',
             'rateplan_id' => 'required|exists:rateplans,id',
             'date' => 'required|date|unique:calendars,date,NULL,id,room_id,' . $request->room_id,
-            'availability' => 'required|integer|min:0',
             'price' => 'required|numeric|min:0',
         ]);
 
@@ -28,12 +28,18 @@ class CalendarController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
+        $room = Room::find($request->room_id);
+
+        if (!$room) {
+            return response()->json(['error' => 'Room not found'], 404);
+        }
+
         // Create the calendar entry using mass assignment
         $calendar = Calendar::create([
             'room_id' => $request->room_id,
             'rateplan_id' => $request->rateplan_id,
             'date' => $request->date,
-            'availability' => $request->availability,
+            'availability' =>  $room->availability,
             'price' => $request->price,
         ]);
 
@@ -52,11 +58,23 @@ class CalendarController extends Controller
             'room_id' => 'required|exists:rooms,id',
             'rateplan_id' => 'required|exists:rateplans,id',
             'date' => 'required|date',
-            'availability' => 'required|integer',
             'price' => 'required|numeric',
         ]);
 
-        $calendar->update($request->all());
+        $room = Room::find($request->room_id);
+
+        if (!$room) {
+            return response()->json(['error' => 'Room not found'], 404);
+        }
+
+        $calendar->update([
+            'room_id' => $request->room_id,
+            'rateplan_id' => $request->rateplan_id,
+            'date' => $request->date,
+            'availability' => $room->availability,
+            'price' => $request->price,
+        ]);
+
         return $calendar;
     }
 

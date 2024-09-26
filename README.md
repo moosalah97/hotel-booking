@@ -76,7 +76,6 @@ CRUD operations for managing room availability.
         "room_id": 1,
         "rateplan_id": 1,
         "date": "2024-09-25",
-        "availability": 5,
         "price": 100.00
     }
     ```

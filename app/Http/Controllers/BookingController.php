@@ -8,6 +8,7 @@ use App\Models\Rateplan;
 use App\Models\Room;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class BookingController extends Controller
@@ -93,7 +94,7 @@ class BookingController extends Controller
         $booking = Booking::create(array_merge($request->all(), ['reservation_number' => $reservationNumber]));
 
         // Decrease availability for each day from check_in to check_out
-        $this->updateCalendarAvailability($request->room_id, $request->check_in, $request->check_out, -1);
+        $this->updateCalendarAvailability($request->room_id, $request->check_in, $request->check_out);
 
         // Redirect back to the bookings index with a success message
         return redirect()->route('bookings.index')->with('success', 'Booking created successfully!');
@@ -126,11 +127,11 @@ class BookingController extends Controller
             'payment_status' => 'required|string|in:paid,pending,cancelled',
         ]);
 
-        $this->updateCalendarAvailability($booking->room_id, $booking->check_in, $booking->check_out, 1);
+        $this->updateCalendarAvailability($booking->room_id, $booking->check_in, $booking->check_out);
 
         $booking->update($request->all());
 
-        $this->updateCalendarAvailability($request->room_id, $request->check_in, $request->check_out, -1);
+        $this->updateCalendarAvailability($request->room_id, $request->check_in, $request->check_out);
 
         return response()->json($booking, 200);
     }
@@ -145,18 +146,41 @@ class BookingController extends Controller
     }
 
     // Helper function to update calendar availability
-    private function updateCalendarAvailability($room_id, $check_in, $check_out, $change)
+    private function updateCalendarAvailability($room_id, $check_in, $check_out)
     {
         $dateRange = $this->getDateRange($check_in, $check_out);
+        $totalDays = count($dateRange);
 
-        foreach ($dateRange as $date) {
-            $calendar = Calendar::where('room_id', $room_id)->where('date', $date)->first();
-            if ($calendar) {
-                $calendar->availability += $change;
-                $calendar->save();
+        $calendar = Calendar::where('room_id', $room_id)->where('availability', '>=', $totalDays)->first();
+
+        if ($calendar) {
+            $calendar->availability -= $totalDays;
+
+            if ($calendar->availability < 0) {
+                $calendar->availability = 0;
             }
+
+            $calendar->save();
         }
     }
+
+
+    private function getDateRange($check_in, $check_out)
+    {
+        $period = new \DatePeriod(
+            new \DateTime($check_in),
+            new \DateInterval('P1D'),
+            (new \DateTime($check_out))->modify('-1 day')
+        );
+
+        $dates = [];
+        foreach ($period as $date) {
+            $dates[] = $date->format('Y-m-d');
+        }
+
+        return $dates;
+    }
+
 
     public function getRevenue()
     {
@@ -171,10 +195,5 @@ class BookingController extends Controller
             'total_revenue_today' => $totalRevenueToday,
             'total_revenue' => $totalRevenue,
         ], 200);
-    }
-
-    private function getDateRange($start, $end)
-    {
-        return \Carbon\CarbonPeriod::create($start, $end)->toArray();
     }
 }
